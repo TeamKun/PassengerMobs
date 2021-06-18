@@ -1,0 +1,12 @@
+name: PassengerMobs
+version: ${project.version}
+main: net.kunmc.lab.passengermobs.PassengerMobs
+api-version: 1.16
+description: 重ねモブプラグイン
+permission: op
+
+commands:
+  PassengerMobs:
+    aliases: [pm]
+    usage: |
+      /<command> radius <number> : スポーン時にMobが重なりうる範囲を指定
