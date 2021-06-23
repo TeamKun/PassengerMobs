@@ -60,7 +60,7 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
                 case Const.COMMAND_RADIUS:
                     if (Double.valueOf(args[1]) >= 0D){
                         Config.radius = Double.valueOf(args[1]);
-                        sender.sendMessage("重ね範囲を " + args[1] + " に変更ました。");
+                        sender.sendMessage("重ね範囲を " + args[1] + " に変更しました。");
                         return true;
                     }else{
                         sender.sendMessage("引数は0以上でなければなりません。");
