@@ -15,6 +15,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public final class PassengerMobs extends JavaPlugin implements Listener {
 
@@ -28,51 +29,15 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
             public void run() {
                 for (World world : Bukkit.getWorlds()) {
                     List<LivingEntity> entityList = world.getLivingEntities();
-                    getLogger().info(String.valueOf(entityList.size()));
-                    while (entityList.size() > 0){
-                        entityList = onEnableInitialize(entityList);
-                    }
+                    onEnableInitialize(entityList);
                 }
             }
         }.runTaskLater(this, 20);
 
-        /*for (World world : Bukkit.getWorlds()) {
-            List<LivingEntity> entityList = world.getLivingEntities();
-            getLogger().info(String.valueOf(entityList.size()));
-            for (LivingEntity creature : world.getLivingEntities()) {
-                if (isCreaturePassenger(creature)) {
-                    entityList.remove(creature);
-                }
-            }
-            getLogger().info(String.valueOf(entityList.size()));
-            while (entityList.size() > 0){
-                entityList = onEnableInitialize(entityList);
-                new BukkitRunnable() {
-                    public void run() {}
-                }.runTask(this);
-            }
-            *//*while (n > 0) {
-                n = 0;
-                getLogger().info(world.getEntities().toString());
-                for (LivingEntity creature : world.getLivingEntities()) {
-                    if (creature.getPassengers().size() == 0) {
-                        if (!isCreaturePassenger(creature)) {
-                            if(creaturePassage(creature)){
-                                n++;
-                            }
-                        }
-                    }
-                }
-                new BukkitRunnable() {
-                    public void run() {}
-                }.runTask(this);
-            }*//*
-        }*/
-
         getServer().getPluginManager().registerEvents(this, this);
     }
 
-    private boolean isCreaturePassenger(LivingEntity creature) {
+    private boolean isCreaturePassenger(Entity creature) {
         for (LivingEntity entity : creature.getWorld().getLivingEntities()) {
             if (entity.getPassengers().contains(creature)) {
                 return true;
@@ -81,31 +46,57 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         return false;
     }
 
-    private List<LivingEntity> onEnableInitialize(List<LivingEntity> creatureList) {
-        Double radius = Config.radius;
-        LivingEntity creature = creatureList.get(0);
-        if ((isCreaturePassenger(creature))){
-            getLogger().info("isPassage");
-            creatureList.remove(creature);
-            return creatureList;
+    private boolean isCreatureVehicle(Entity creature) {
+        return creature.getPassengers().size() == 0;
+    }
+
+    private Entity topPassenger(Entity creature) {
+        while (creature.getPassengers().size() > 0){
+            creature = creature.getPassengers().get(0);
         }
-        List<Entity> entityList = creature.getNearbyEntities(radius, radius, radius);
-        List<Double> distanceList = new ArrayList<>();
-        for (Entity entity : entityList) {
-            if ((entity.getType() == creature.getType()) && (entity.getPassengers().size() == 0)) {
-                distanceList.add(entity.getLocation().distance(creature.getLocation()));
-            } else {
-                distanceList.add(radius * radius * radius + 1D);
+        return creature;
+    }
+
+    private int allPassengerSize(Entity creature) {
+        int i = 0;
+        while (creature.getPassengers().size() > 0){
+            creature = creature.getPassengers().get(0);
+            i++;
+        }
+        return i;
+    }
+
+    private void onEnableInitialize(List<LivingEntity> creatureList) {
+        Double radius = Config.radius;
+        if (creatureList.size() == 0) {
+            return;
+        }
+
+        creatureList.removeIf(this::isCreaturePassenger);
+        creatureList = creatureList.stream()
+                .sorted((e1, e2) -> allPassengerSize(e1) - allPassengerSize(e2))
+                .collect(Collectors.toList());
+        LivingEntity creature = creatureList.get(0);
+
+        int i = 0;
+        while (i == 0){
+            List<Entity> entityList = topPassenger(creature).getNearbyEntities(radius, radius, radius);
+            i++;
+            for (Entity entity : entityList) {
+                if ((entity.getType() == creature.getType())
+                        && (isCreatureVehicle(entity))
+                        && (!isCreaturePassenger(entity))
+                        && (topPassenger(creature) != entity)) {
+                    topPassenger(creature).addPassenger(entity);
+                    i = 0;
+                    break;
+                }
+
             }
         }
 
-        if (Collections.min(distanceList) != radius * radius * radius + 1D) {
-            getLogger().info("passage");
-            Entity vehicle = entityList.get(distanceList.indexOf(Collections.min(distanceList)));
-            vehicle.addPassenger(creature);
-        }
         creatureList.remove(creature);
-        return creatureList;
+        if (creatureList.size() > 0) onEnableInitialize(creatureList);
     }
 
     @EventHandler
@@ -120,9 +111,10 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         List<Entity> entityList = creature.getNearbyEntities(radius, radius, radius);
         if (entityList.size() == 0)
             return;
+
         List<Double> distanceList = new ArrayList<>();
         for (Entity entity : entityList) {
-            if ((entity.getType() == creature.getType()) && (entity.getPassengers().size() == 0)) {
+            if ((entity.getType() == creature.getType()) && (isCreatureVehicle(entity))) {
                 distanceList.add(entity.getLocation().distance(creature.getLocation()));
             } else {
                 distanceList.add(radius * radius * radius + 1D);
@@ -131,7 +123,6 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         if (Collections.min(distanceList) != radius * radius * radius + 1D) {
             entityList.get(distanceList.indexOf(Collections.min(distanceList))).addPassenger(creature);
         }
-        return;
     }
 
     @Override
