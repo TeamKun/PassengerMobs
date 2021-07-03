@@ -14,6 +14,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,35 +38,6 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
     }
 
-    private boolean isCreaturePassenger(Entity creature) {
-        for (LivingEntity entity : creature.getWorld().getLivingEntities()) {
-            if (entity.getPassengers().contains(creature)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isCreatureVehicle(Entity creature) {
-        return creature.getPassengers().size() == 0;
-    }
-
-    private Entity topPassenger(Entity creature) {
-        while (creature.getPassengers().size() > 0){
-            creature = creature.getPassengers().get(0);
-        }
-        return creature;
-    }
-
-    private int allPassengerSize(Entity creature) {
-        int i = 0;
-        while (creature.getPassengers().size() > 0){
-            creature = creature.getPassengers().get(0);
-            i++;
-        }
-        return i;
-    }
-
     private void onEnableInitialize(List<LivingEntity> creatureList) {
         Double radius = Config.radius;
         if (creatureList.size() == 0) {
@@ -74,7 +46,7 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
 
         creatureList.removeIf(this::isCreaturePassenger);
         creatureList = creatureList.stream()
-                .sorted((e1, e2) -> allPassengerSize(e1) - allPassengerSize(e2))
+                .sorted(Comparator.comparingInt(this::allPassengerSize))
                 .collect(Collectors.toList());
         LivingEntity creature = creatureList.get(0);
 
@@ -87,9 +59,12 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
                         && (isCreatureVehicle(entity))
                         && (!isCreaturePassenger(entity))
                         && (topPassenger(creature) != entity)) {
-                    topPassenger(creature).addPassenger(entity);
-                    i = 0;
-                    break;
+                    double distance = entity.getLocation().distance(creature.getLocation());
+                    if (distance <= radius) {
+                        topPassenger(creature).addPassenger(entity);
+                        i = 0;
+                        break;
+                    }
                 }
 
             }
@@ -114,13 +89,16 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
 
         List<Double> distanceList = new ArrayList<>();
         for (Entity entity : entityList) {
-            if ((entity.getType() == creature.getType()) && (isCreatureVehicle(entity))) {
-                distanceList.add(entity.getLocation().distance(creature.getLocation()));
+            double distance = entity.getLocation().distance(creature.getLocation());
+            if ((entity.getType() == creature.getType())
+                    && (isCreatureVehicle(entity))
+                    && (distance <= radius)) {
+                distanceList.add(distance);
             } else {
-                distanceList.add(radius * radius * radius + 1D);
+                distanceList.add(radius + 1D);
             }
         }
-        if (Collections.min(distanceList) != radius * radius * radius + 1D) {
+        if (Collections.min(distanceList) != radius + 1D) {
             entityList.get(distanceList.indexOf(Collections.min(distanceList))).addPassenger(creature);
         }
     }
@@ -138,7 +116,7 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         try {
             switch (args[0]) {
                 case Const.COMMAND_RADIUS:
-                    if (Double.valueOf(args[1]) >= 0D) {
+                    if (Double.parseDouble(args[1]) >= 0D) {
                         Config.radius = Double.valueOf(args[1]);
                         sender.sendMessage("重ね範囲を " + args[1] + " に変更しました。");
                         return true;
@@ -168,6 +146,35 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         }
 
         return completions;
+    }
+
+    private boolean isCreaturePassenger(Entity creature) {
+        for (LivingEntity entity : creature.getWorld().getLivingEntities()) {
+            if (entity.getPassengers().contains(creature)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isCreatureVehicle(Entity creature) {
+        return creature.getPassengers().size() == 0;
+    }
+
+    private Entity topPassenger(Entity creature) {
+        while (creature.getPassengers().size() > 0){
+            creature = creature.getPassengers().get(0);
+        }
+        return creature;
+    }
+
+    private int allPassengerSize(Entity creature) {
+        int i = 0;
+        while (creature.getPassengers().size() > 0){
+            creature = creature.getPassengers().get(0);
+            i++;
+        }
+        return i;
     }
 
     @Override
