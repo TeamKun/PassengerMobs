@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Creature;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
@@ -24,14 +25,18 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
     public void onEnable() {
         // Plugin startup logic
         getLogger().info("PassengerMobsプラグインが有効になりました。");
-
         new BukkitRunnable() {
             @Override
             public void run() {
                 for (World world : Bukkit.getWorlds()) {
                     List<LivingEntity> entityList = world.getLivingEntities();
+                    entityList.removeIf(this::isNotCreature);
                     onEnableInitialize(entityList);
                 }
+            }
+
+            private boolean isNotCreature(Entity entity) {
+                return !(entity instanceof Creature);
             }
         }.runTaskLater(this, 20);
 
@@ -40,28 +45,34 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
 
     private void onEnableInitialize(List<LivingEntity> creatureList) {
         Double radius = Config.radius;
+
+        creatureList.removeIf(this::isCreaturePassenger);
         if (creatureList.size() == 0) {
             return;
         }
 
-        creatureList.removeIf(this::isCreaturePassenger);
         creatureList = creatureList.stream()
-                .sorted(Comparator.comparingInt(this::allPassengerSize))
+                .sorted(Comparator.comparingInt(this::getAllPassengersSize))
                 .collect(Collectors.toList());
         LivingEntity creature = creatureList.get(0);
 
+        Entity topPassenger = getTopPassenger(creature);
+        double height = getPassengersHeight(creature);
+
         int i = 0;
-        while (i == 0){
-            List<Entity> entityList = topPassenger(creature).getNearbyEntities(radius, radius, radius);
+        while (i == 0) {
+            List<Entity> entityList = topPassenger.getNearbyEntities(radius, radius, radius);
             i++;
             for (Entity entity : entityList) {
-                if ((entity.getType() == creature.getType())
+                if ((entity.getType() == topPassenger.getType())
                         && (isCreatureVehicle(entity))
                         && (!isCreaturePassenger(entity))
-                        && (topPassenger(creature) != entity)) {
-                    double distance = entity.getLocation().distance(creature.getLocation());
+                        && (topPassenger != entity)) {
+                    double distance = entity.getLocation().distance(creature.getLocation().add(0D, height, 0D));
                     if (distance <= radius) {
-                        topPassenger(creature).addPassenger(entity);
+                        topPassenger.addPassenger(entity);
+                        topPassenger = entity;
+                        height += entity.getHeight();
                         i = 0;
                         break;
                     }
@@ -161,16 +172,25 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         return creature.getPassengers().size() == 0;
     }
 
-    private Entity topPassenger(Entity creature) {
-        while (creature.getPassengers().size() > 0){
+    private Entity getTopPassenger(Entity creature) {
+        while (creature.getPassengers().size() > 0) {
             creature = creature.getPassengers().get(0);
         }
         return creature;
     }
 
-    private int allPassengerSize(Entity creature) {
+    private Double getPassengersHeight(Entity creature) {
+        double height = 0D;
+        while (creature.getPassengers().size() > 0) {
+            creature = creature.getPassengers().get(0);
+            height += creature.getHeight();
+        }
+        return height;
+    }
+
+    private int getAllPassengersSize(Entity creature) {
         int i = 0;
-        while (creature.getPassengers().size() > 0){
+        while (creature.getPassengers().size() > 0) {
             creature = creature.getPassengers().get(0);
             i++;
         }
