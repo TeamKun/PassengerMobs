@@ -25,20 +25,11 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
     public void onEnable() {
         // Plugin startup logic
         getLogger().info("PassengerMobsプラグインが有効になりました。");
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (World world : Bukkit.getWorlds()) {
-                    List<LivingEntity> entityList = world.getLivingEntities();
-                    entityList.removeIf(this::isNotCreature);
-                    onEnableInitialize(entityList);
-                }
-            }
-
-            private boolean isNotCreature(Entity entity) {
-                return !(entity instanceof Creature);
-            }
-        }.runTaskLater(this, 20);
+        for (World world : Bukkit.getWorlds()) {
+            List<LivingEntity> entityList = world.getLivingEntities();
+            entityList.removeIf(this::isNotCreature);
+            onEnableInitialize(entityList);
+        }
 
         getServer().getPluginManager().registerEvents(this, this);
     }
@@ -157,6 +148,10 @@ public final class PassengerMobs extends JavaPlugin implements Listener {
         }
 
         return completions;
+    }
+
+    private boolean isNotCreature(Entity entity) {
+        return !(entity instanceof Creature);
     }
 
     private boolean isCreaturePassenger(Entity creature) {
